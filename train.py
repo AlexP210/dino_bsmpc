@@ -414,7 +414,8 @@ class Trainer:
             bisim_memory_buffer_size=self.cfg.get('bisim_memory_buffer_size', 0),
             bisim_comparison_size=self.cfg.get('bisim_comparison_size', 20),
         )
-        self.model = torch.compile(self.model)
+        if self.cfg.get('compile_model', True):
+            self.model = torch.compile(self.model)
 
     def init_optimizers(self):
         self.encoder_optimizer = torch.optim.Adam(
@@ -960,6 +961,11 @@ class Trainer:
             )
         else:
             pred_imgs = torch.full(gt_imgs.shape, -1, device=self.device)
+
+        # the model skips the decoder entirely when has_bisim is set, so there
+        # is nothing to reconstruct: fill blanks like we do for pred_imgs
+        if reconstructed_gt_imgs is None:
+            reconstructed_gt_imgs = torch.full_like(gt_imgs, -1)
 
         pred_imgs = rearrange(pred_imgs, "b t c h w -> (b t) c h w")
         gt_imgs = rearrange(gt_imgs, "b t c h w -> (b t) c h w")

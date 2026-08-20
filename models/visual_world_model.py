@@ -233,11 +233,14 @@ class VWorldModel(nn.Module):
         num_samples = min(num_samples, available_samples)
         indices = torch.randperm(available_samples, device=self.bisim_memory_states.device)[:num_samples]
 
+        # index_select rather than x[indices]: inductor's randperm_index pattern
+        # (torch 2.10) mis-matches aten.index on a randperm index and errors out
+        # during joint-graph passes under torch.compile.
         return {
-            'states': self.bisim_memory_states[indices],
-            'next_states': self.bisim_memory_next_states[indices],
-            'actions': self.bisim_memory_actions[indices],
-            'rewards': self.bisim_memory_rewards[indices]
+            'states': self.bisim_memory_states.index_select(0, indices),
+            'next_states': self.bisim_memory_next_states.index_select(0, indices),
+            'actions': self.bisim_memory_actions.index_select(0, indices),
+            'rewards': self.bisim_memory_rewards.index_select(0, indices)
         }
 
     def calc_bisim_loss(self, z_bisim, next_z_bisim, action_emb, epoch, reward=None, discount=0.99):
@@ -283,9 +286,9 @@ class VWorldModel(nn.Module):
                 reward_combined = torch.cat([reward, memory_rewards], dim=0)
 
                 perm = torch.randperm(self.bisim_comparison_size, device=z_bisim.device)
-                z_bisim2 = z_bisim_combined[perm]
-                next_z_bisim2 = next_z_bisim_combined[perm]
-                reward2 = reward_combined[perm]
+                z_bisim2 = z_bisim_combined.index_select(0, perm)
+                next_z_bisim2 = next_z_bisim_combined.index_select(0, perm)
+                reward2 = reward_combined.index_select(0, perm)
 
                 if hasattr(self.bisim_model, "module"):
                     bisim_loss, z_dist, r_dist, transition_dist, var_loss, cov_reg = self.bisim_model.module.calc_bisim_loss(
@@ -306,9 +309,9 @@ class VWorldModel(nn.Module):
             else:
                 # fallback to batch_size comparison
                 perm = torch.randperm(batch_size, device=z_bisim.device)
-                z_bisim2 = z_bisim[perm]
-                next_z_bisim2 = next_z_bisim[perm]
-                reward2 = reward[perm]
+                z_bisim2 = z_bisim.index_select(0, perm)
+                next_z_bisim2 = next_z_bisim.index_select(0, perm)
+                reward2 = reward.index_select(0, perm)
 
                 if hasattr(self.bisim_model, "module"):
                     bisim_loss, z_dist, r_dist, transition_dist, var_loss, cov_reg = self.bisim_model.module.calc_bisim_loss(
@@ -325,9 +328,9 @@ class VWorldModel(nn.Module):
         else:
             # memory buffer disabled or eval mode
             perm = torch.randperm(batch_size, device=z_bisim.device)
-            z_bisim2 = z_bisim[perm]
-            next_z_bisim2 = next_z_bisim[perm]
-            reward2 = reward[perm]
+            z_bisim2 = z_bisim.index_select(0, perm)
+            next_z_bisim2 = next_z_bisim.index_select(0, perm)
+            reward2 = reward.index_select(0, perm)
 
             if hasattr(self.bisim_model, "module"):
                 bisim_loss, z_dist, r_dist, transition_dist, var_loss, cov_reg = self.bisim_model.module.calc_bisim_loss(
