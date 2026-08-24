@@ -496,7 +496,6 @@ class Trainer:
             self.train()
             self.accelerator.wait_for_everyone()
             self.val()
-            self.logs_flash(step=self.epoch)
             epoch_log = self.logs_flash(step=self.epoch)
             if self.cfg.training.save_best and epoch_log["val_loss"] < self.best_val_loss:
                 self.best_val_loss = epoch_log["val_loss"]
@@ -898,6 +897,7 @@ class Trainer:
 
         log_msg = f"Epoch {self.epoch}  Training loss: {epoch_log.get('train_loss', 0):.4f}  Validation loss: {epoch_log.get('val_loss', 0):.4f}"
         log.info(log_msg)
+        return epoch_log
 
         if 'train_bisim_loss' in epoch_log:
             bisim_msg = f"Train:  Bisim_loss: {epoch_log.get('train_bisim_loss', 0):.4f}  \
