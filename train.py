@@ -37,8 +37,9 @@ class Trainer:
             cfg["saved_folder"] = os.getcwd()
             log.info(f"Model saved dir: {cfg['saved_folder']}")
         cfg_dict = cfg_to_dict(cfg)
+        # saved_folder already ends in _${env.name} (see hydra.run.dir in conf/train.yaml)
         model_name = cfg_dict["saved_folder"].split("outputs/")[-1]
-        model_name += f"_{self.cfg.env.name}_f{self.cfg.frameskip}_h{self.cfg.num_hist}_p{self.cfg.num_pred}"
+        model_name += f"_f{self.cfg.frameskip}_h{self.cfg.num_hist}_p{self.cfg.num_pred}"
 
         if HydraConfig.get().mode == RunMode.MULTIRUN:
             log.info(" Multirun setup begin...")
@@ -897,7 +898,6 @@ class Trainer:
 
         log_msg = f"Epoch {self.epoch}  Training loss: {epoch_log.get('train_loss', 0):.4f}  Validation loss: {epoch_log.get('val_loss', 0):.4f}"
         log.info(log_msg)
-        return epoch_log
 
         if 'train_bisim_loss' in epoch_log:
             bisim_msg = f"Train:  Bisim_loss: {epoch_log.get('train_bisim_loss', 0):.4f}  \
@@ -920,6 +920,7 @@ class Trainer:
         if self.accelerator.is_main_process:
             self.wandb_run.log(epoch_log)
         self.epoch_log = OrderedDict()
+        return epoch_log
 
     def plot_samples(
             self,
